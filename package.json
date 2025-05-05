@@ -1,0 +1,17 @@
+{
+  "name": "olimpo-gym",
+  "version": "1.0.0",
+  "description": "Sistema de controle de acesso para academia",
+  "main": "main_tcp.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "electron": "^28.1.0",
+    "sqlite3": "^5.1.6",
+    "serialport": "^12.0.0"
+  }
+}

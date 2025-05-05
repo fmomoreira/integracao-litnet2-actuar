@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OlimpoGym - Controle de Acesso</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f2f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status-bar {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #dc3545;
+        }
+        .status-dot.connected {
+            background-color: #28a745;
+        }
+        .log-container {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        .log-entry.success {
+            color: #28a745;
+        }
+        .log-entry.error {
+            color: #dc3545;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .alunos-lista {
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div id="statusDot" class="status-dot"></div>
+                <span id="statusText">Desconectado</span>
+            </div>
+            <div>
+                <label>IP da Catraca:</label>
+                <input type="text" id="deviceIp" value="192.168.1.100">
+                <label>Porta:</label>
+                <input type="number" id="devicePort" value="3000">
+                <button onclick="conectarDispositivo()">Conectar</button>
+            </div>
+        </div>
+
+        <h1>OlimpoGym - Cadastro de Alunos</h1>
+        
+        <div class="form-group">
+            <label for="nome">Nome:</label>
+            <input type="text" id="nome" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="matricula">Matrícula:</label>
+            <input type="text" id="matricula" required>
+        </div>
+        
+        <button onclick="cadastrarAluno()">Cadastrar Aluno</button>
+        <button onclick="cadastrarBiometria()">Cadastrar Biometria</button>
+        <button onclick="liberarAcesso()">Liberar Acesso</button>
+
+        <div class="alunos-lista">
+            <h2>Alunos Cadastrados</h2>
+            <table id="alunosTable">
+                <thead>
+                    <tr>
+                        <th>Matrícula</th>
+                        <th>Nome</th>
+                        <th>Biometria</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="alunosBody">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="log-container">
+            <h3>Log de Eventos</h3>
+            <div id="logEntries"></div>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        
+        // Carregar alunos do localStorage ao iniciar
+        let alunos = JSON.parse(localStorage.getItem('alunos') || '[]');
+
+        function cadastrarAluno() {
+            const nome = document.getElementById('nome').value;
+            const matricula = document.getElementById('matricula').value;
+            
+            if (!nome || !matricula) {
+                alert('Por favor, preencha todos os campos!');
+                return;
+            }
+
+            const aluno = {
+                nome,
+                matricula,
+                biometriaCadastrada: false
+            };
+
+            alunos.push(aluno);
+            salvarAlunos();
+            atualizarTabela();
+            limparFormulario();
+            addLogEntry('Aluno cadastrado com sucesso!', 'success');
+        }
+
+        function cadastrarBiometria() {
+            const matricula = document.getElementById('matricula').value;
+            if (!matricula) {
+                alert('Por favor, informe a matrícula do aluno!');
+                return;
+            }
+
+            // Envia comando para cadastrar biometria
+            ipcRenderer.send('cadastrar-biometria', matricula);
+            addLogEntry('Iniciando cadastro de biometria...', 'info');
+        }
+
+        function liberarAcesso() {
+            const matricula = document.getElementById('matricula').value;
+            if (!matricula) {
+                alert('Por favor, informe a matrícula do aluno!');
+                return;
+            }
+
+            const aluno = alunos.find(a => a.matricula === matricula);
+            if (!aluno) {
+                alert('Aluno não encontrado!');
+                return;
+            }
+
+            // Envia comando para liberar acesso com mensagem personalizada
+            ipcRenderer.send('liberar-acesso', {
+                userId: matricula,
+                mensagem: `Bem-vindo ${aluno.nome}`
+            });
+        }
+
+        function atualizarTabela() {
+            const tbody = document.getElementById('alunosBody');
+            tbody.innerHTML = '';
+
+            alunos.forEach(aluno => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${aluno.matricula}</td>
+                    <td>${aluno.nome}</td>
+                    <td>${aluno.biometriaCadastrada ? 'Sim' : 'Não'}</td>
+                    <td>
+                        <button onclick="selecionarAluno('${aluno.matricula}')">Selecionar</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function selecionarAluno(matricula) {
+            const aluno = alunos.find(a => a.matricula === matricula);
+            if (aluno) {
+                document.getElementById('nome').value = aluno.nome;
+                document.getElementById('matricula').value = aluno.matricula;
+            }
+        }
+
+        function limparFormulario() {
+            document.getElementById('nome').value = '';
+            document.getElementById('matricula').value = '';
+        }
+
+        function salvarAlunos() {
+            localStorage.setItem('alunos', JSON.stringify(alunos));
+        }
+
+        function conectarDispositivo() {
+            const ip = document.getElementById('deviceIp').value;
+            const porta = document.getElementById('devicePort').value;
+            ipcRenderer.send('conectar-dispositivo', { ip, porta });
+        }
+
+        function addLogEntry(message, type = 'info') {
+            const logContainer = document.getElementById('logEntries');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `${new Date().toLocaleTimeString()} - ${message}`;
+            logContainer.insertBefore(entry, logContainer.firstChild);
+        }
+
+        // Listeners para eventos do processo principal
+        ipcRenderer.on('connection-status', (event, connected) => {
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
+            if (connected) {
+                statusDot.classList.add('connected');
+                statusText.textContent = 'Conectado';
+                addLogEntry('Conectado ao dispositivo', 'success');
+            } else {
+                statusDot.classList.remove('connected');
+                statusText.textContent = 'Desconectado';
+                addLogEntry('Desconectado do dispositivo', 'error');
+            }
+        });
+
+        ipcRenderer.on('biometria-detectada', (event, userId) => {
+            addLogEntry(`Biometria detectada para ID: ${userId}`, 'success');
+        });
+
+        ipcRenderer.on('passagem-detectada', (event, data) => {
+            addLogEntry(`Passagem detectada - Direção: ${data.direction}`, 'info');
+        });
+
+        // Carregar tabela inicial
+        atualizarTabela();
+    </script>
+</body>
+</html>
