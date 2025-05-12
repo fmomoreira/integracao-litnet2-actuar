@@ -1,5 +1,10 @@
 # Integração LiteNet2 - Sistema de Controle de Acesso
 
+
+![image](https://github.com/user-attachments/assets/3135ed37-fbe4-4b18-8c5d-66dd002c4707)
+
+
+
 Este é um MVP (Minimum Viable Product) de integração com as catracas LiteNet2 da [Actuar](https://www.actuar.com/software) usando Electron e Node.js. O projeto implementa uma interface desktop para controle de acesso independente, utilizando o protocolo TCP/IP para comunicação com o equipamento.
 
 ## 🚀 Características
